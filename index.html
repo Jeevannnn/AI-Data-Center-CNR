@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI & The Environment | Data Center Impact Visualizer</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Leaflet for interactive maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;900&family=Source+Sans+3:wght@400;600;700&display=swap');
+        
+        :root {
+            --forest-green: #047857;
+            --earth-brown: #78350f;
+            --deep-charcoal: #1c1917;
+            --soft-cream: #fafaf9;
+            --light-sage: #f0fdf4;
+        }
+        
+        * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        body { 
+            font-family: 'Source Sans 3', system-ui, -apple-system, sans-serif;
+            line-height: 1.7;
+            color: var(--deep-charcoal);
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(7, 120, 87, 0.1);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+        }
+        
+        .gradient-text {
+            color: var(--forest-green);
+        }
+        
+        .pattern-grid {
+            background-image: 
+                radial-gradient(circle at 25px 25px, rgba(7, 120, 87, 0.03) 2%, transparent 0%),
+                radial-gradient(circle at 75px 75px, rgba(7, 120, 87, 0.03) 2%, transparent 0%);
+            background-size: 100px 100px;
+            background-position: 0 0, 50px 50px;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.6s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Map Styles */
+        .map-container {
+            position: relative;
+            background-color: #f8fafc;
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+        .map-dot {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: var(--earth-brown);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 0 0 rgba(120, 53, 15, 0.3);
+            z-index: 10;
+        }
+        .map-dot:hover {
+            transform: scale(1.6);
+            z-index: 20;
+            box-shadow: 0 0 0 8px rgba(120, 53, 15, 0.15);
+        }
+        .map-dot::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            border-radius: 50%;
+            border: 2px solid #ef4444;
+            animation: pulse-ring 2s infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+        
+        /* Tooltip */
+        .dot-tooltip {
+            position: absolute;
+            bottom: 150%;
+            left: 50%;
+            transform: translateX(-50%) translateY(5px);
+            background: var(--deep-charcoal);
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            font-size: 0.813rem;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            z-index: 30;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+        .map-dot:hover .dot-tooltip {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .dot-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1e293b transparent transparent transparent;
+        }
+        
+        /* Table Styles */
+        .registry-table th {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+        .registry-table tr:hover td {
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <!-- Hero Section -->
+    <header class="bg-stone-900 text-white py-24 md:py-32 px-4 relative overflow-hidden">
+        <div class="absolute inset-0 opacity-40">
+            <div class="absolute top-20 left-1/4 w-96 h-96 bg-emerald-700 rounded-full mix-blend-multiply filter blur-3xl"></div>
+            <div class="absolute bottom-20 right-1/4 w-96 h-96 bg-amber-900 rounded-full mix-blend-multiply filter blur-3xl"></div>
+        </div>
+        <div class="max-w-5xl mx-auto text-center relative z-10">
+            <div class="inline-flex items-center gap-2 mb-6 px-4 py-2 bg-emerald-900/30 border border-emerald-700/30 rounded-full text-emerald-300 text-sm font-medium">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                Environmental Impact Research
+            </div>
+            <h1 class="text-5xl md:text-7xl font-black mb-6 tracking-tight leading-tight">
+                The Hidden Cost of <br/><span class="text-emerald-400">Artificial Intelligence</span>
+            </h1>
+            <p class="text-xl md:text-2xl text-stone-300 font-normal max-w-3xl mx-auto leading-relaxed">
+                Every AI query consumes real resources. Explore the energy, water, and land footprint of modern AI infrastructure.
+            </p>
+            <div class="mt-12 flex flex-wrap gap-6 justify-center items-center text-sm text-stone-400">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                    <span>1,136+ Data Centers</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
+                    <span>1000 TWh by 2026</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                    <span>Billions of Liters</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-12 space-y-20">
+
+        <!-- Calculator Section -->
+        <section id="calculator" class="bg-white rounded-2xl shadow-lg p-8 md:p-10 border border-stone-200">
+            <div class="text-center mb-12">
+                <div class="inline-block p-3 bg-emerald-50 rounded-xl mb-4">
+                    <svg class="w-8 h-8 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                </div>
+                <h2 class="text-4xl font-bold text-stone-900 mb-3">Personal Impact Calculator</h2>
+                <p class="text-lg text-stone-600 max-w-2xl mx-auto">Calculate the environmental footprint of your daily AI usage</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <!-- Inputs -->
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-lg font-medium text-stone-800 mb-3" style="font-family: 'Poppins', sans-serif; letter-spacing: -0.01em;">How many text prompts do you send per day?</label>
+                        <input type="range" id="textPrompts" min="0" max="100" value="10" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        <div class="flex justify-between text-sm text-slate-500 mt-1">
+                            <span>0</span>
+                            <span id="textPromptsValue" class="font-bold text-blue-600 text-lg">10</span>
+                            <span>100+</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-lg font-medium text-stone-800 mb-3" style="font-family: 'Poppins', sans-serif; letter-spacing: -0.01em;">How many images do you generate per day?</label>
+                        <input type="range" id="imagePrompts" min="0" max="20" value="0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600">
+                        <div class="flex justify-between text-sm text-slate-500 mt-1">
+                            <span>0</span>
+                            <span id="imagePromptsValue" class="font-bold text-purple-600 text-lg">0</span>
+                            <span>20+</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Outputs -->
+                <div class="grid grid-cols-1 gap-4">
+                    <!-- Energy Card -->
+                    <div class="bg-emerald-50 p-6 rounded-xl border-2 border-emerald-200 flex items-center justify-between transition-shadow hover:shadow-md">
+                        <div>
+                            <p class="text-xs text-emerald-800 font-semibold uppercase tracking-wide mb-1">Yearly Energy</p>
+                            <h3 class="text-4xl font-black text-stone-900"><span id="energyResult">0</span> <span class="text-xl font-semibold text-stone-600">kWh</span></h3>
+                            <p class="text-sm text-stone-600 mt-2">≈ <span id="phoneCharges" class="font-bold text-emerald-800">0</span> phone charges</p>
+                        </div>
+                        <div class="bg-emerald-700 p-4 rounded-xl">
+                            <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- Water Card -->
+                    <div class="bg-blue-50 p-6 rounded-xl border-2 border-blue-200 flex items-center justify-between transition-shadow hover:shadow-md">
+                        <div>
+                            <p class="text-xs text-blue-800 font-semibold uppercase tracking-wide mb-1">Yearly Water</p>
+                            <h3 class="text-4xl font-black text-stone-900"><span id="waterResult">0</span> <span class="text-xl font-semibold text-stone-600">Liters</span></h3>
+                            <p class="text-sm text-stone-600 mt-2">≈ <span id="waterBottles" class="font-bold text-blue-800">0</span> bottles</p>
+                        </div>
+                        <div class="bg-blue-700 p-4 rounded-xl">
+                            <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a6 6 0 01-6-6c0-1.657.672-3.157 1.757-4.243L10 3.515l4.243 4.242A6 6 0 0110 18z" clip-rule="evenodd"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- Carbon Card -->
+                    <div class="bg-amber-50 p-6 rounded-xl border-2 border-amber-200 flex items-center justify-between transition-shadow hover:shadow-md">
+                        <div>
+                            <p class="text-xs text-amber-900 font-semibold uppercase tracking-wide mb-1">CO<sub>2</sub> Emissions</p>
+                            <h3 class="text-4xl font-black text-stone-900"><span id="carbonResult">0</span> <span class="text-xl font-semibold text-stone-600">kg</span></h3>
+                            <p class="text-sm text-stone-600 mt-2">≈ <span id="carMiles" class="font-bold text-amber-900">0</span> km driven</p>
+                        </div>
+                        <div class="bg-amber-800 p-4 rounded-xl">
+                            <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- NEW: Task Cost Estimator Section -->
+        <section id="taskEstimator" class="bg-stone-900 rounded-2xl shadow-lg p-8 md:p-10 border border-stone-700 text-white relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+            
+            <div class="relative z-10">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold mb-2">Task Cost Estimator</h2>
+                    <p class="text-slate-400">Enter a specific task to see its individual environmental footprint.</p>
+                </div>
+
+                <div class="max-w-2xl mx-auto bg-slate-800 p-6 rounded-xl border border-slate-700">
+                    <div class="grid md:grid-cols-3 gap-4 mb-6">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-slate-400 mb-2">What do you want to create?</label>
+                            <input type="text" id="taskNameInput" placeholder="e.g. Write a history essay" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none placeholder-slate-500 transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-400 mb-2">Type</label>
+                            <select id="taskTypeSelect" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer transition-all appearance-none bg-no-repeat bg-right pr-10" style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27white%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-position: right 0.75rem center; background-size: 1.25rem;">
+                                <option value="text">📝 Text Generation</option>
+                                <option value="image">🖼️ Image Generation</option>
+                                <option value="video">🎥 Video Generation</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button onclick="calculateTaskCost()" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-semibold py-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg">
+                        Calculate Footprint
+                    </button>
+
+                    <!-- Result Display (Hidden by default) -->
+                    <div id="taskResultContainer" class="hidden mt-6 pt-6 border-t border-slate-700 animate-fade-in">
+                        <p class="text-center text-lg mb-4">
+                            For  <span id="displayTaskName" class="font-bold text-blue-400">...</span>, the estimated cost is:
+                        </p>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-slate-900 p-4 rounded-lg text-center border border-slate-700">
+                                <i class="fas fa-bolt text-yellow-400 text-xl mb-2"></i>
+                                <p class="text-sm text-slate-400">Energy</p>
+                                <p id="taskEnergy" class="text-xl font-bold text-white">0 Wh</p>
+                            </div>
+                            <div class="bg-slate-900 p-4 rounded-lg text-center border border-slate-700">
+                                <i class="fas fa-droplet text-cyan-400 text-xl mb-2"></i>
+                                <p class="text-sm text-slate-400">Water</p>
+                                <p id="taskWater" class="text-xl font-bold text-white">0 ml</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 bg-slate-700/50 p-3 rounded-lg text-center text-sm text-slate-300">
+                            <i class="fas fa-lightbulb text-yellow-200 mr-2"></i>
+                            <span id="taskComparison"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Big Picture Section -->
+        <section>
+            <div class="text-center mb-16">
+                <div class="inline-block p-3 bg-amber-100 rounded-xl mb-4">
+                    <svg class="w-8 h-8 text-amber-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                </div>
+                <h2 class="text-4xl font-bold text-stone-900 mb-4">The Big Picture</h2>
+                <p class="text-lg text-stone-600 max-w-3xl mx-auto">Individual actions add up, but the scale of industrial AI training and global data centers is massive.</p>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-8">
+                <!-- Training Cost Chart -->
+                <div class="bg-white p-8 rounded-2xl shadow-lg border-2 border-stone-200">
+                    <div class="flex items-center gap-3 mb-4 pb-4 border-b border-stone-200">
+                        <div class="p-2 bg-emerald-100 rounded-lg">
+                            <svg class="w-6 h-6 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </div>
+                        <h3 class="text-2xl font-bold text-stone-900">Training Energy Consumption</h3>
+                    </div>
+                    <p class="text-sm text-stone-600 mb-6">Energy to train one AI model vs. annual Indian household consumption</p>
+                    <canvas id="trainingChart"></canvas>
+                    <div class="mt-6 text-sm text-stone-700 bg-emerald-50 p-5 rounded-lg border-2 border-emerald-200">
+                        <p class="flex items-start gap-2"><strong class="text-emerald-800">Insight:</strong> Training GPT-4 consumed ~50x more energy than GPT-3, enough to power ~12,000 Indian homes for a year.</p>
+                    </div>
+                </div>
+
+                <!-- Global Comparison Chart -->
+                <div class="bg-white p-8 rounded-2xl shadow-lg border-2 border-stone-200">
+                    <div class="flex items-center gap-3 mb-4 pb-4 border-b border-stone-200">
+                        <div class="p-2 bg-emerald-100 rounded-lg">
+                            <svg class="w-6 h-6 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </div>
+                        <h3 class="text-2xl font-bold text-stone-900">Global Data Center Energy (2026)</h3>
+                    </div>
+                    <p class="text-sm text-stone-600 mb-6">Data center electricity vs. entire nations (TWh)</p>
+                    <canvas id="globalChart"></canvas>
+                    <div class="mt-6 text-sm text-stone-700 bg-emerald-50 p-5 rounded-lg border-2 border-emerald-200">
+                        <p class="flex items-start gap-2"><strong class="text-emerald-800">Insight:</strong> By 2026, data centers could consume as much electricity as Japan, the world's 4th largest economy.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Water Consumption Visual -->
+        <section class="bg-stone-900 rounded-2xl p-8 md:p-12 text-white overflow-hidden relative shadow-lg">
+            <div class="absolute top-0 right-0 w-96 h-96 bg-emerald-800 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+            <div class="relative z-10 grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <div class="inline-block p-3 bg-emerald-900/50 rounded-xl mb-4">
+                        <svg class="w-8 h-8 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                    </div>
+                    <h2 class="text-4xl font-bold mb-6">The Thirst for Cooling</h2>
+                    <p class="text-indigo-200 text-lg mb-6 leading-relaxed">
+                        Data centers generate immense heat. To keep servers from melting, they consume billions of liters of water for cooling towers.
+                    </p>
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="bg-emerald-900/50 p-3 rounded-lg mr-4">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-lg">GPT-3 Training</h4>
+                                <p class="text-stone-300">Consumed ~700,000 liters of clean freshwater. That's enough water for 3,500 Indian households for a day.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="bg-emerald-900/50 p-3 rounded-lg mr-4">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-lg">The "Water Bottle" Metric</h4>
+                                <p class="text-stone-300">Estimates suggest 20-50 AI queries "drinks" a standard 500ml Bisleri bottle worth of water due to cooling system evaporation.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Visual representation -->
+                <div class="bg-indigo-800/50 p-8 rounded-2xl backdrop-blur-sm border border-indigo-700/50">
+                    <div class="text-center mb-6">
+                        <span class="text-6xl font-bold text-cyan-400">20-50</span>
+                        <p class="text-indigo-300 uppercase tracking-widest text-sm mt-2">Queries</p>
+                    </div>
+                    <div class="flex justify-center items-center">
+                        <span class="text-2xl text-white font-bold mr-4">=</span>
+                        <div class="relative w-24 h-48 border-4 border-cyan-400 rounded-lg overflow-hidden bg-indigo-950">
+                            <div class="absolute bottom-0 left-0 right-0 bg-cyan-500/80 h-3/4 w-full animate-pulse"></div>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <i class="fas fa-bottle-water text-4xl text-white drop-shadow-lg"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-center mt-6 text-sm text-stone-300">~500ml Water Evaporated (1 Bisleri Bottle)</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- LAND USAGE Section -->
+        <section class="bg-emerald-50 rounded-3xl p-8 md:p-12 border border-emerald-100 relative overflow-hidden pattern-grid">
+            <div class="text-center mb-10 relative z-10">
+                <h2 class="text-3xl font-bold text-emerald-900 mb-4">The Land Footprint</h2>
+                <p class="text-emerald-700 max-w-2xl mx-auto text-lg">
+                    "The Cloud" isn't in the sky. It's on the ground, occupying vast swathes of land that compete with agriculture and housing.
+                </p>
+            </div>
+            
+            <div class="grid lg:grid-cols-2 gap-12 items-center relative z-10">
+                <!-- Visual -->
+                <div class="bg-white/80 p-8 rounded-2xl border border-emerald-200 backdrop-blur-sm">
+                    <div class="flex flex-col items-center">
+                        <div class="mb-6">
+                            <svg class="w-32 h-32 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-6xl font-black text-emerald-800 mb-2">80-200</h3>
+                        <p class="text-emerald-600 font-bold uppercase tracking-wide">Hectares</p>
+                        <p class="text-sm text-emerald-700 mt-2">(800,000 - 2,000,000 sq meters)</p>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="space-y-6">
+                    <div class="bg-white p-5 rounded-xl border-l-4 border-emerald-500 shadow-sm">
+                        <h4 class="font-bold text-emerald-900 text-lg mb-1">Hyperscale Sprawl</h4>
+                        <p class="text-emerald-800/80">
+                            A single hyperscale data center campus can occupy <span class="font-bold">80 to 200 hectares</span>—that's larger than 150-400 city blocks or equivalent to entire neighborhoods.
+                        </p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border-l-4 border-emerald-500 shadow-sm">
+                        <h4 class="font-bold text-emerald-900 text-lg mb-1">Real-World Example</h4>
+                        <p class="text-emerald-800/80">
+                            This is roughly the size of the area from <span class="font-bold">MG Road to Cubbon Park in Bangalore</span>—a huge urban footprint consuming land that could support housing or farmland.
+                        </p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border-l-4 border-emerald-500 shadow-sm">
+                        <h4 class="font-bold text-emerald-900 text-lg mb-1">Mega-Campuses</h4>
+                        <p class="text-emerald-800/80">
+                            New "Gigawatt-scale" campuses exceed <span class="font-bold">400 hectares</span> (4 sq km)—nearly the size of Connaught Place to India Gate in Delhi—effectively creating small, power-hungry cities.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- HUMAN IMPACT Section -->
+        <section class="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-slate-800 mb-2">The Human Cost</h2>
+                <p class="text-slate-500">Beyond the hardware, real people are impacted by the AI supply chain.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Ghost Work -->
+                <div class="bg-orange-50 rounded-xl p-6 border border-orange-100">
+                    <div class="flex items-center mb-4 text-orange-600">
+                        <i class="fas fa-users text-2xl mr-3"></i>
+                        <h3 class="text-xl font-bold">The "Ghost Work" Force</h3>
+                    </div>
+                    <p class="text-slate-700 mb-4 leading-relaxed">
+                        AI isn't magic; it learns from humans. Millions of workers in the Global South (e.g., India, Kenya, Philippines) annotate data to train models.
+                    </p>
+                    <ul class="space-y-3">
+                        <li class="flex items-start">
+                            <i class="fas fa-exclamation-triangle text-orange-400 mt-1 mr-2"></i>
+                            <span class="text-sm text-slate-600"><strong>Toxic Content:</strong> Workers often moderate violent or disturbing content to filter it out for users, leading to high rates of PTSD.</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-money-bill-wave text-orange-400 mt-1 mr-2"></i>
+                            <span class="text-sm text-slate-600"><strong>Low Wages:</strong> Reports indicate many Indian "ghost workers" earn less than <span class="bg-orange-100 px-1 rounded font-bold text-orange-800">₹150-200 per hour</span> (~$2 USD).</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Community Impact -->
+                <div class="bg-red-50 rounded-xl p-6 border border-red-100">
+                    <div class="flex items-center mb-4 text-red-600">
+                        <i class="fas fa-city text-2xl mr-3"></i>
+                        <h3 class="text-xl font-bold">Local Communities</h3>
+                    </div>
+                    <p class="text-slate-700 mb-4 leading-relaxed">
+                        Living next to a data center brings physical challenges to local residents.
+                    </p>
+                    <ul class="space-y-3">
+                        <li class="flex items-start">
+                            <i class="fas fa-volume-up text-red-400 mt-1 mr-2"></i>
+                            <span class="text-sm text-slate-600"><strong>Noise Pollution:</strong> The industrial cooling fans create a constant, low-frequency "droning hum" that disrupts sleep and wildlife.</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-faucet text-red-400 mt-1 mr-2"></i>
+                            <span class="text-sm text-slate-600"><strong>Resource Competition:</strong> In water-stressed areas like Maharashtra and Tamil Nadu, data centers compete with local farmers and residents for limited water rights.</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- GLOBAL DISTRIBUTION MAP Section -->
+        <section class="bg-white rounded-2xl shadow-lg p-8 md:p-10 border-2 border-stone-200">
+            <div class="text-center mb-12">
+                <div class="inline-block p-3 bg-amber-100 rounded-xl mb-4">
+                    <svg class="w-8 h-8 text-amber-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                </div>
+                <h2 class="text-4xl font-bold text-stone-900 mb-4">Global Data Center Hotspots</h2>
+                <p class="text-lg text-stone-600 max-w-3xl mx-auto">
+                    As of 2024, there are over <span class="font-bold text-stone-900">1,136 hyperscale data centers</span> globally. The US dominates, but growth is surging in Asia.
+                </p>
+            </div>
+
+            <!-- Interactive World Map -->
+            <div id="worldMap" class="w-full h-96 relative mb-8 border-2 border-stone-200 shadow-lg rounded-2xl overflow-hidden"></div>
+            
+            <script>
+                // Initialize Leaflet map
+                document.addEventListener('DOMContentLoaded', function() {
+                    const map = L.map('worldMap', {
+                        center: [20, 0],
+                        zoom: 2,
+                        minZoom: 2,
+                        maxZoom: 10,
+                        scrollWheelZoom: true,
+                        zoomControl: true
+                    });
+                    
+                    // Add OpenStreetMap tiles
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors',
+                        maxZoom: 19
+                    }).addTo(map);
+                    
+                    // Custom icons - Simple dots
+                    const yellowIcon = L.icon({
+                        iconUrl: 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15"><rect x="3" y="4" width="18" height="5" rx="1.5" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.2"/><rect x="3" y="11" width="18" height="5" rx="1.5" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.2"/><rect x="3" y="18" width="18" height="2" rx="0.8" fill="#FCD34D" stroke="#F59E0B" stroke-width="1"/><circle cx="7" cy="6.5" r="0.8" fill="#F59E0B"/><circle cx="7" cy="13.5" r="0.8" fill="#F59E0B"/></svg>'),
+                        iconSize: [15, 15],
+                        iconAnchor: [7.5, 7.5],
+                        popupAnchor: [0, -7.5]
+                    });
+                    
+                    const blueIcon = L.icon({
+                        iconUrl: 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15"><rect x="3" y="4" width="18" height="5" rx="1.5" fill="#60A5FA" stroke="#2563EB" stroke-width="1.2"/><rect x="3" y="11" width="18" height="5" rx="1.5" fill="#60A5FA" stroke="#2563EB" stroke-width="1.2"/><rect x="3" y="18" width="18" height="2" rx="0.8" fill="#60A5FA" stroke="#2563EB" stroke-width="1"/><circle cx="7" cy="6.5" r="0.8" fill="#2563EB"/><circle cx="7" cy="13.5" r="0.8" fill="#2563EB"/></svg>'),
+                        iconSize: [15, 15],
+                        iconAnchor: [7.5, 7.5],
+                        popupAnchor: [0, -7.5]
+                    });
+                    
+                    // Data center locations with coordinates
+                    const datacenters = [
+                        {lat: 38.9, lng: -77.5, name: 'Northern Virginia', capacity: '~2.5 GW', note: "World's largest hub", icon: yellowIcon},
+                        {lat: 37.4, lng: -122.1, name: 'Silicon Valley', capacity: 'High density', note: 'Tech HQ hub', icon: yellowIcon},
+                        {lat: 50.1, lng: 8.7, name: 'Frankfurt (FLAPD)', capacity: '~15-20%', note: 'Frankfurt, London, Amsterdam, Paris, Dublin', icon: yellowIcon},
+                        {lat: 51.5, lng: -0.1, name: 'London (FLAPD)', capacity: 'High density', note: 'Major European hub', icon: blueIcon},
+                        {lat: 52.4, lng: 4.9, name: 'Amsterdam (FLAPD)', capacity: 'High density', note: 'European gateway', icon: blueIcon},
+                        {lat: 19.0, lng: 72.8, name: 'Mumbai, India', capacity: 'Fastest growing', note: 'Major Indian hub', icon: yellowIcon},
+                        {lat: 13.1, lng: 80.3, name: 'Chennai, India', capacity: 'Growing', note: 'South India hub', icon: blueIcon},
+                        {lat: 17.4, lng: 78.5, name: 'Hyderabad, India', capacity: 'Expanding', note: 'Tech city hub', icon: blueIcon},
+                        {lat: 1.3, lng: 103.8, name: 'Singapore', capacity: 'High density', note: 'Southeast Asia gateway', icon: yellowIcon},
+                        {lat: 39.9, lng: 116.4, name: 'Beijing, China', capacity: 'Major APAC hub', note: 'Rapid domestic growth', icon: yellowIcon},
+                        {lat: 31.2, lng: 121.5, name: 'Shanghai, China', capacity: 'High density', note: 'Financial hub', icon: blueIcon},
+                        {lat: 35.7, lng: 139.7, name: 'Tokyo, Japan', capacity: 'Major hub', note: 'APAC gateway', icon: blueIcon},
+                        {lat: 37.6, lng: 126.9, name: 'Seoul, South Korea', capacity: 'Growing', note: 'Tech hub', icon: blueIcon},
+                        {lat: 22.3, lng: 114.2, name: 'Hong Kong', capacity: 'High density', note: 'Asian gateway', icon: blueIcon},
+                        {lat: 25.0, lng: 121.5, name: 'Taipei, Taiwan', capacity: 'Expanding', note: 'Tech manufacturing hub', icon: blueIcon},
+                        {lat: 25.2, lng: 55.3, name: 'Dubai, UAE', capacity: 'Growing', note: 'Middle East hub', icon: blueIcon},
+                        {lat: -33.9, lng: 151.2, name: 'Sydney, Australia', capacity: 'Major hub', note: 'Oceania gateway', icon: yellowIcon},
+                        {lat: -23.5, lng: -46.6, name: 'São Paulo, Brazil', capacity: 'Growing', note: 'South America hub', icon: blueIcon},
+                        {lat: 41.9, lng: -87.6, name: 'Chicago, USA', capacity: 'High density', note: 'US Midwest hub', icon: blueIcon},
+                        {lat: 33.7, lng: -117.9, name: 'Orange County, USA', capacity: 'Growing', note: 'California hub', icon: blueIcon},
+                        {lat: 33.4, lng: -111.9, name: 'Phoenix, USA', capacity: 'Expanding', note: 'Southwest hub', icon: blueIcon},
+                        {lat: 32.8, lng: -96.8, name: 'Dallas, USA', capacity: 'High density', note: 'Texas hub', icon: blueIcon},
+                        {lat: 47.6, lng: -122.3, name: 'Seattle, USA', capacity: 'Major hub', note: 'Pacific Northwest', icon: blueIcon},
+                        {lat: 45.5, lng: -122.7, name: 'Portland, USA', capacity: 'Growing', note: 'Green energy hub', icon: blueIcon}
+                    ];
+                    
+                    // Add markers
+                    datacenters.forEach(dc => {
+                        L.marker([dc.lat, dc.lng], {icon: dc.icon})
+                            .bindPopup(`
+                                <div class="text-sm">
+                                    <strong class="block text-base mb-1">${dc.name}</strong>
+                                    <div class="text-gray-600">${dc.capacity}</div>
+                                    <div class="text-gray-500 text-xs mt-1">${dc.note}</div>
+                                </div>
+                            `)
+                            .addTo(map);
+                    });
+                });
+            </script>
+            
+            <!-- Map Legend -->
+            <div class="bg-stone-50 rounded-lg p-6 border-2 border-stone-200">
+                <div class="grid md:grid-cols-3 gap-6 text-sm">
+                    <div class="flex items-center space-x-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"><rect x="3" y="4" width="18" height="5" rx="1.5" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.2"/><rect x="3" y="11" width="18" height="5" rx="1.5" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.2"/><rect x="3" y="18" width="18" height="2" rx="0.8" fill="#FCD34D" stroke="#F59E0B" stroke-width="1"/><circle cx="7" cy="6.5" r="0.8" fill="#F59E0B"/><circle cx="7" cy="13.5" r="0.8" fill="#F59E0B"/></svg>
+                        <span class="text-stone-700 font-medium">Major Hubs (Primary locations)</span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"><rect x="3" y="4" width="18" height="5" rx="1.5" fill="#60A5FA" stroke="#2563EB" stroke-width="1.2"/><rect x="3" y="11" width="18" height="5" rx="1.5" fill="#60A5FA" stroke="#2563EB" stroke-width="1.2"/><rect x="3" y="18" width="18" height="2" rx="0.8" fill="#60A5FA" stroke="#2563EB" stroke-width="1"/><circle cx="7" cy="6.5" r="0.8" fill="#2563EB"/><circle cx="7" cy="13.5" r="0.8" fill="#2563EB"/></svg>
+                        <span class="text-stone-700 font-medium">Secondary Hubs (Regional centers)</span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-stone-700 font-semibold">US: 40% · APAC: 30% · EU: 20%</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- REGISTRY SECTION -->
+        <section class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+            <div class="p-8 border-b border-slate-100 bg-slate-50">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                    <div>
+                        <h2 class="text-3xl font-bold text-slate-800 mb-2">AI Data Center Registry</h2>
+                        <p class="text-slate-500">A listing of major operational hyperscale hubs and upcoming AI mega-projects (2025-2030).</p>
+                    </div>
+                    <div class="mt-4 md:mt-0 bg-white px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-500">
+                        <i class="fas fa-database mr-2 text-blue-500"></i> Over 1,136 Hyperscale Centers Globally
+                    </div>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse registry-table">
+                    <thead>
+                        <tr>
+                            <th class="p-4 border-b border-slate-200">Project / Facility</th>
+                            <th class="p-4 border-b border-slate-200">Operator</th>
+                            <th class="p-4 border-b border-slate-200">Location</th>
+                            <th class="p-4 border-b border-slate-200">Status</th>
+                            <th class="p-4 border-b border-slate-200">Est. Capacity</th>
+                            <th class="p-4 border-b border-slate-200">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm text-slate-700">
+                        <!-- Upcoming Mega Projects -->
+                        <tr class="bg-blue-50/50">
+                            <td class="p-4 border-b border-slate-100 font-bold text-blue-900"><i class="fas fa-star text-yellow-400 mr-2"></i>Project Stargate</td>
+                            <td class="p-4 border-b border-slate-100">Microsoft / OpenAI</td>
+                            <td class="p-4 border-b border-slate-100">USA (TBD)</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-bold">Planned (2028)</span></td>
+                            <td class="p-4 border-b border-slate-100">~5 GW</td>
+                            <td class="p-4 border-b border-slate-100">Rumored $100B AI supercomputer campus.</td>
+                        </tr>
+                        <tr class="bg-purple-50/50">
+                            <td class="p-4 border-b border-slate-100 font-bold text-purple-900">Blackwell Expansion</td>
+                            <td class="p-4 border-b border-slate-100">Amazon (AWS)</td>
+                            <td class="p-4 border-b border-slate-100">Multiple (US, India)</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-bold">Ongoing</span></td>
+                            <td class="p-4 border-b border-slate-100">Multi-GW</td>
+                            <td class="p-4 border-b border-slate-100">$150B investment plan over 15 years.</td>
+                        </tr>
+
+                        <!-- India Specific Section -->
+                        <tr>
+                            <td colspan="6" class="p-3 bg-slate-100 font-bold text-slate-600 uppercase tracking-wider text-xs">India (Major AI Hubs)</td>
+                        </tr>
+                        <tr class="bg-orange-50/50">
+                            <td class="p-4 border-b border-slate-100 font-bold text-orange-900">Jamnagar AI Hub</td>
+                            <td class="p-4 border-b border-slate-100">Reliance Industries / Nvidia</td>
+                            <td class="p-4 border-b border-slate-100">Gujarat, India</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-bold">Planned</span></td>
+                            <td class="p-4 border-b border-slate-100">1 GW (Target)</td>
+                            <td class="p-4 border-b border-slate-100">Dedicated green-powered AI infrastructure.</td>
+                        </tr>
+                        <tr class="bg-orange-50/50">
+                            <td class="p-4 border-b border-slate-100 font-bold text-orange-900">Yotta D1 / NM1</td>
+                            <td class="p-4 border-b border-slate-100">Yotta Infrastructure</td>
+                            <td class="p-4 border-b border-slate-100">Noida & Navi Mumbai</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">Operational / Expanding</span></td>
+                            <td class="p-4 border-b border-slate-100">~160 MW+</td>
+                            <td class="p-4 border-b border-slate-100">Hosting 16,000+ Nvidia H100 GPUs (Shakti Cloud).</td>
+                        </tr>
+                        <tr class="bg-orange-50/50">
+                            <td class="p-4 border-b border-slate-100 font-bold text-orange-900">Vizag Data Hub</td>
+                            <td class="p-4 border-b border-slate-100">Google</td>
+                            <td class="p-4 border-b border-slate-100">Visakhapatnam, India</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-bold">Announced</span></td>
+                            <td class="p-4 border-b border-slate-100">Gigawatt Scale</td>
+                            <td class="p-4 border-b border-slate-100">Google's massive bet on South Asian AI capacity.</td>
+                        </tr>
+                        <tr class="bg-orange-50/50">
+                            <td class="p-4 border-b border-slate-100 font-bold text-orange-900">AdaniConneX</td>
+                            <td class="p-4 border-b border-slate-100">Adani / EdgeConneX</td>
+                            <td class="p-4 border-b border-slate-100">Chennai, Noida, Hyderabad</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-bold">Expanding</span></td>
+                            <td class="p-4 border-b border-slate-100">1 GW (Platform Target)</td>
+                            <td class="p-4 border-b border-slate-100">Rapidly scaling renewable-powered campuses.</td>
+                        </tr>
+                        <tr class="bg-orange-50/50">
+                            <td class="p-4 border-b border-slate-100 font-bold text-orange-900">AI Mega Campus</td>
+                            <td class="p-4 border-b border-slate-100">CtrlS Datacenters</td>
+                            <td class="p-4 border-b border-slate-100">Hyderabad, India</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">Operational</span></td>
+                            <td class="p-4 border-b border-slate-100">~200 MW+</td>
+                            <td class="p-4 border-b border-slate-100">Specially designed for high-density AI racks.</td>
+                        </tr>
+
+                        <!-- North America -->
+                        <tr>
+                            <td colspan="6" class="p-3 bg-slate-100 font-bold text-slate-600 uppercase tracking-wider text-xs">North America</td>
+                        </tr>
+                        <tr>
+                            <td class="p-4 border-b border-slate-100 font-medium">Data Center Alley</td>
+                            <td class="p-4 border-b border-slate-100">Various (AWS, Azure, Google)</td>
+                            <td class="p-4 border-b border-slate-100">Northern Virginia, USA</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">Operational</span></td>
+                            <td class="p-4 border-b border-slate-100">~2.5 GW</td>
+                            <td class="p-4 border-b border-slate-100">World's largest concentration of data centers.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-4 border-b border-slate-100 font-medium">Eagle Mountain</td>
+                            <td class="p-4 border-b border-slate-100">Meta</td>
+                            <td class="p-4 border-b border-slate-100">Utah, USA</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">Operational</span></td>
+                            <td class="p-4 border-b border-slate-100">~970 MW</td>
+                            <td class="p-4 border-b border-slate-100">Massive facility pivoted to AI workloads.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-4 border-b border-slate-100 font-medium">Council Bluffs</td>
+                            <td class="p-4 border-b border-slate-100">Google</td>
+                            <td class="p-4 border-b border-slate-100">Iowa, USA</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">Operational</span></td>
+                            <td class="p-4 border-b border-slate-100">~1.5 GW</td>
+                            <td class="p-4 border-b border-slate-100">One of Google's largest global campuses.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-4 border-b border-slate-100 font-medium">Mesa Campus</td>
+                            <td class="p-4 border-b border-slate-100">Meta / Apple / Google</td>
+                            <td class="p-4 border-b border-slate-100">Arizona, USA</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-bold">Expanding</span></td>
+                            <td class="p-4 border-b border-slate-100">~800 MW+</td>
+                            <td class="p-4 border-b border-slate-100">Major hub facing water scrutiny.</td>
+                        </tr>
+                        
+                        <!-- APAC & Europe -->
+                        <tr>
+                            <td colspan="6" class="p-3 bg-slate-100 font-bold text-slate-600 uppercase tracking-wider text-xs">APAC (Excluding India) & Europe</td>
+                        </tr>
+                        <tr>
+                            <td class="p-4 border-b border-slate-100 font-medium">Johor Campus</td>
+                            <td class="p-4 border-b border-slate-100">Bridge DC / ByteDance</td>
+                            <td class="p-4 border-b border-slate-100">Johor, Malaysia</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-bold">Construction</span></td>
+                            <td class="p-4 border-b border-slate-100">100+ MW</td>
+                            <td class="p-4 border-b border-slate-100">Spillover growth from Singapore constraints.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-4 border-b border-slate-100 font-medium">Hamina</td>
+                            <td class="p-4 border-b border-slate-100">Google</td>
+                            <td class="p-4 border-b border-slate-100">Finland</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">Operational</span></td>
+                            <td class="p-4 border-b border-slate-100">~200 MW</td>
+                            <td class="p-4 border-b border-slate-100">Uses seawater cooling from the Baltic Sea.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-4 border-b border-slate-100 font-medium">Odense</td>
+                            <td class="p-4 border-b border-slate-100">Meta</td>
+                            <td class="p-4 border-b border-slate-100">Denmark</td>
+                            <td class="p-4 border-b border-slate-100"><span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">Operational</span></td>
+                            <td class="p-4 border-b border-slate-100">~225 MW</td>
+                            <td class="p-4 border-b border-slate-100">Recycles heat for the local district heating system.</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="p-4 bg-slate-50 text-center text-xs text-slate-500">
+                    * This list is non-exhaustive. Capacity and status are based on public reports and estimates as of late 2024/early 2025.
+                </div>
+            </div>
+        </section>
+        
+
+        <!-- CASE STUDY: Visakhapatnam Google Data Hub -->
+        <section id="vizag-case-study" class="max-w-6xl mx-auto mt-20 mb-16">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold text-stone-900 mb-4">Case Study: Vizag Data Hub</h2>
+                <p class="text-xl text-stone-600">Google's Upcoming Data Center in Visakhapatnam, Andhra Pradesh</p>
+                <div class="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-blue-100 rounded-full">
+                    <i class="fas fa-map-marker-alt text-blue-600"></i>
+                    <span class="text-sm font-semibold text-blue-800">Visakhapatnam, India • Status: Planned/Under Development</span>
+                </div>
+            </div>
+
+            <!-- Overview Stats -->
+            <div class="grid md:grid-cols-4 gap-6 mb-12">
+                <div class="glass-panel rounded-xl p-6 text-center border-l-4 border-blue-600">
+                    <i class="fas fa-building text-3xl text-blue-600 mb-3"></i>
+                    <div class="text-3xl font-bold text-stone-900">~100-150</div>
+                    <div class="text-sm text-stone-600 mt-1">Acres Estimated</div>
+                </div>
+                <div class="glass-panel rounded-xl p-6 text-center border-l-4 border-amber-600">
+                    <i class="fas fa-bolt text-3xl text-amber-600 mb-3"></i>
+                    <div class="text-3xl font-bold text-stone-900">200-400 MW</div>
+                    <div class="text-sm text-stone-600 mt-1">Power Capacity</div>
+                </div>
+                <div class="glass-panel rounded-xl p-6 text-center border-l-4 border-cyan-600">
+                    <i class="fas fa-tint text-3xl text-cyan-600 mb-3"></i>
+                    <div class="text-3xl font-bold text-stone-900">15-30 Cr L</div>
+                    <div class="text-sm text-stone-600 mt-1">Water/Year</div>
+                </div>
+                <div class="glass-panel rounded-xl p-6 text-center border-l-4 border-green-600">
+                    <div class="text-5xl text-green-600 mb-3 font-bold">₹</div>
+                    <div class="text-3xl font-bold text-stone-900">₹10,000+</div>
+                    <div class="text-sm text-stone-600 mt-1">Crore Investment</div>
+                </div>
+            </div>
+
+            <!-- Detailed Analysis Grid -->
+            <div class="grid lg:grid-cols-2 gap-8">
+                
+                <!-- LAND REQUIREMENTS -->
+                <div class="glass-panel rounded-2xl p-8 border-l-4 border-emerald-600">
+                    <div class="flex items-center mb-6">
+                        <i class="fas fa-map text-3xl text-emerald-600 mr-4"></i>
+                        <h3 class="text-2xl font-bold text-stone-900">Land Requirements</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-emerald-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-ruler-combined text-emerald-600 mr-2"></i>
+                                Estimated Area
+                            </div>
+                            <p class="text-stone-700 text-sm leading-relaxed">
+                                <strong>100-150 acres</strong> (~40-60 hectares) - comparable to 50-75 football fields or the size of the Vizag Steel Plant's administrative campus. Large enough for server halls, cooling infrastructure, power substations, and security perimeter.
+                            </p>
+                        </div>
+
+                        <div class="bg-amber-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-money-bill-wave text-amber-600 mr-2"></i>
+                                Land Acquisition Costs
+                            </div>
+                            <ul class="text-sm text-stone-700 space-y-2 ml-4 list-disc">
+                                <li><strong>Market rate:</strong> ₹50-100 lakh per acre in industrial zones</li>
+                                <li><strong>Total land cost:</strong> ₹500-1,500 crore</li>
+                                <li><strong>Government incentives:</strong> Andhra Pradesh may offer subsidized rates (30-50% discount) to attract tech investment</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-red-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-exclamation-triangle text-red-600 mr-2"></i>
+                                Displacement Impact
+                            </div>
+                            <p class="text-stone-700 text-sm">
+                                Potential displacement of <strong>200-500 farming families</strong> if agricultural land is acquired. Fair compensation and rehabilitation packages are critical.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ELECTRICITY DEMAND -->
+                <div class="glass-panel rounded-2xl p-8 border-l-4 border-yellow-500">
+                    <div class="flex items-center mb-6">
+                        <i class="fas fa-plug text-3xl text-yellow-500 mr-4"></i>
+                        <h3 class="text-2xl font-bold text-stone-900">Electricity Demand</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-yellow-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-bolt text-yellow-600 mr-2"></i>
+                                Power Requirements
+                            </div>
+                            <p class="text-stone-700 text-sm leading-relaxed mb-3">
+                                <strong>200-400 MW continuous power</strong> - equivalent to powering <strong>600,000 to 1.2 million Indian homes</strong> (at 3.5 MWh/year average).
+                            </p>
+                            <div class="bg-white rounded p-3 border border-yellow-200">
+                                <div class="text-xs text-stone-600 mb-1">Annual Energy Consumption:</div>
+                                <div class="text-2xl font-bold text-yellow-700">1,750-3,500 GWh/year</div>
+                            </div>
+                        </div>
+
+                        <div class="bg-orange-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <span class="text-orange-600 mr-2 text-xl font-bold">₹</span>
+                                Electricity Costs
+                            </div>
+                            <ul class="text-sm text-stone-700 space-y-2 ml-4 list-disc">
+                                <li><strong>Industrial tariff:</strong> ₹5-7 per unit (kWh) in Andhra Pradesh</li>
+                                <li><strong>Annual electricity bill:</strong> ₹875-2,450 crore/year</li>
+                                <li><strong>Special tariff:</strong> Government may offer ₹3-4/unit for mega projects</li>
+                                <li><strong>Renewable energy:</strong> Google may invest in dedicated solar farms (500-1000 MW) nearby</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-red-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-exclamation-circle text-red-600 mr-2"></i>
+                                Grid Impact
+                            </div>
+                            <p class="text-stone-700 text-sm">
+                                This represents <strong>12-25% of Visakhapatnam's current power capacity</strong>. May require new transmission infrastructure and backup diesel generators (causing local air pollution).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WATER CONSUMPTION -->
+                <div class="glass-panel rounded-2xl p-8 border-l-4 border-blue-600">
+                    <div class="flex items-center mb-6">
+                        <i class="fas fa-water text-3xl text-blue-600 mr-4"></i>
+                        <h3 class="text-2xl font-bold text-stone-900">Water Consumption</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-tint text-blue-600 mr-2"></i>
+                                Water Requirements
+                            </div>
+                            <p class="text-stone-700 text-sm leading-relaxed mb-3">
+                                <strong>15-30 crore litres per year</strong> (150-300 million litres) for cooling systems - enough to fill <strong>60-120 Olympic swimming pools</strong> annually.
+                            </p>
+                            <div class="bg-white rounded p-3 border border-blue-200">
+                                <div class="text-xs text-stone-600 mb-1">Daily Consumption:</div>
+                                <div class="text-2xl font-bold text-blue-700">4-8 lakh litres/day</div>
+                                <div class="text-xs text-stone-600 mt-2">Equivalent to daily water needs of <strong>40,000-80,000 people</strong></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-cyan-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-money-bill-wave text-cyan-600 mr-2"></i>
+                                Water Costs & Sources
+                            </div>
+                            <ul class="text-sm text-stone-700 space-y-2 ml-4 list-disc">
+                                <li><strong>Industrial water tariff:</strong> ₹30-50 per kilolitre</li>
+                                <li><strong>Annual water bill:</strong> ₹45-150 crore/year</li>
+                                <li><strong>Source:</strong> Likely from Meghadrigedda Reservoir or Gosthani River</li>
+                                <li><strong>Alternative:</strong> Seawater desalination plant (costly but sustainable given coastal location)</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-red-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-exclamation-triangle text-red-600 mr-2"></i>
+                                Water Stress Concerns
+                            </div>
+                            <p class="text-stone-700 text-sm">
+                                Visakhapatnam faces <strong>seasonal water shortages</strong>. Competition with local residents, agriculture, and industries could spark conflicts during summer months (March-June).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ECONOMIC IMPACT -->
+                <div class="glass-panel rounded-2xl p-8 border-l-4 border-purple-600">
+                    <div class="flex items-center mb-6">
+                        <i class="fas fa-chart-line text-3xl text-purple-600 mr-4"></i>
+                        <h3 class="text-2xl font-bold text-stone-900">Economic Impact</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-green-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-plus-circle text-green-600 mr-2"></i>
+                                Benefits to Andhra Pradesh
+                            </div>
+                            <ul class="text-sm text-stone-700 space-y-2 ml-4 list-disc">
+                                <li><strong>Direct jobs:</strong> 500-1,500 positions (engineers, technicians, security, maintenance)</li>
+                                <li><strong>Indirect jobs:</strong> 3,000-5,000 in construction, hospitality, transport, food services</li>
+                                <li><strong>Tax revenue:</strong> ₹200-500 crore/year (property tax, GST, corporate tax)</li>
+                                <li><strong>Tech ecosystem:</strong> Attracts startups, cloud service providers, fiber optic networks</li>
+                                <li><strong>Real estate boost:</strong> Increases land values in surrounding areas by 30-50%</li>
+                                <li><strong>Infrastructure upgrades:</strong> Google may fund roads, power substations, fiber cables benefiting wider region</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-amber-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-coins text-amber-600 mr-2"></i>
+                                Total Investment
+                            </div>
+                            <p class="text-stone-700 text-sm mb-2">
+                                <strong>Estimated ₹10,000-15,000 crore</strong> (~$1.2-1.8 billion USD)
+                            </p>
+                            <ul class="text-xs text-stone-600 space-y-1 ml-4 list-disc">
+                                <li>Land acquisition: ₹500-1,500 crore</li>
+                                <li>Construction & infrastructure: ₹3,000-5,000 crore</li>
+                                <li>IT equipment & servers: ₹5,000-7,000 crore</li>
+                                <li>Power infrastructure & solar farms: ₹1,000-2,000 crore</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-handshake text-blue-600 mr-2"></i>
+                                Government Incentives
+                            </div>
+                            <ul class="text-sm text-stone-700 space-y-1 ml-4 list-disc">
+                                <li>Tax holidays (5-10 years)</li>
+                                <li>Subsidized land & electricity</li>
+                                <li>Single-window clearance</li>
+                                <li>Capital investment subsidy (up to 25%)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ENVIRONMENTAL COSTS -->
+                <div class="glass-panel rounded-2xl p-8 border-l-4 border-red-600">
+                    <div class="flex items-center mb-6">
+                        <i class="fas fa-smog text-3xl text-red-600 mr-4"></i>
+                        <h3 class="text-2xl font-bold text-stone-900">Environmental Costs</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-red-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-cloud text-red-600 mr-2"></i>
+                                Carbon Emissions
+                            </div>
+                            <p class="text-stone-700 text-sm leading-relaxed mb-2">
+                                <strong>1.3-2.6 million tonnes CO₂ per year</strong> (if powered by coal-heavy Andhra Pradesh grid - 80% thermal power)
+                            </p>
+                            <div class="bg-white rounded p-3 border border-red-200">
+                                <div class="text-xs text-stone-600">Equivalent to emissions from:</div>
+                                <div class="text-lg font-bold text-red-700">2.8-5.6 lakh cars driven annually</div>
+                            </div>
+                            <p class="text-xs text-green-700 mt-2 font-semibold">
+                                ✓ Reduced by 70-90% if Google fulfills renewable energy commitment
+                            </p>
+                        </div>
+
+                        <div class="bg-orange-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-thermometer-three-quarters text-orange-600 mr-2"></i>
+                                Heat & Noise Pollution
+                            </div>
+                            <ul class="text-sm text-stone-700 space-y-2 ml-4 list-disc">
+                                <li><strong>Waste heat:</strong> Raises local ambient temperature by 2-4°C within 500m radius</li>
+                                <li><strong>Noise:</strong> Cooling fans produce 60-75 dB noise (like heavy traffic) 24/7</li>
+                                <li><strong>Light pollution:</strong> 24/7 operations disrupt nocturnal wildlife</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-yellow-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-tree text-yellow-700 mr-2"></i>
+                                Land & Ecosystem Impact
+                            </div>
+                            <ul class="text-sm text-stone-700 space-y-1 ml-4 list-disc">
+                                <li>Loss of agricultural land (potential food security concern)</li>
+                                <li>Concrete/asphalt covering prevents groundwater recharge</li>
+                                <li>Possible disruption of local biodiversity (Eastern Ghats foothills region)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SOCIAL COSTS -->
+                <div class="glass-panel rounded-2xl p-8 border-l-4 border-indigo-600">
+                    <div class="flex items-center mb-6">
+                        <i class="fas fa-users text-3xl text-indigo-600 mr-4"></i>
+                        <h3 class="text-2xl font-bold text-stone-900">Social Costs</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-red-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-home text-red-600 mr-2"></i>
+                                Community Displacement
+                            </div>
+                            <ul class="text-sm text-stone-700 space-y-2 ml-4 list-disc">
+                                <li><strong>200-500 families</strong> may be displaced from ancestral farmland</li>
+                                <li>Compensation often inadequate for rebuilding livelihoods</li>
+                                <li>Loss of community identity and cultural ties</li>
+                                <li>Rehabilitation colonies often lack adequate infrastructure</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-orange-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-briefcase text-orange-600 mr-2"></i>
+                                Job Quality Concerns
+                            </div>
+                            <p class="text-stone-700 text-sm leading-relaxed">
+                                While <strong>500-1,500 direct jobs</strong> sounds promising, many roles require specialized skills. <strong>Local hiring rate may be only 20-30%</strong> - most engineers and technicians brought from Hyderabad, Bangalore, or Chennai. Lower-skilled jobs (security, cleaning, catering) offer limited career growth.
+                            </p>
+                        </div>
+
+                        <div class="bg-yellow-50 rounded-lg p-4">
+                            <div class="font-bold text-stone-800 mb-2 flex items-center">
+                                <i class="fas fa-traffic-light text-yellow-600 mr-2"></i>
+                                Infrastructure Strain
+                            </div>
+                            <ul class="text-sm text-stone-700 space-y-1 ml-4 list-disc">
+                                <li>Increased traffic congestion from employee commutes & supply trucks</li>
+                                <li>Pressure on local housing (rent hikes displacing low-income residents)</li>
+                                <li>Strain on municipal water supply and sewage systems</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- VERDICT: Is It a Good Investment? -->
+            <div class="mt-12 glass-panel rounded-2xl p-10 border-2 border-stone-200">
+                <h3 class="text-3xl font-bold text-stone-900 mb-6 text-center">
+                    <i class="fas fa-balance-scale text-indigo-600 mr-3"></i>
+                    Verdict: Is This a Good Investment for Andhra Pradesh?
+                </h3>
+                
+                <div class="grid lg:grid-cols-2 gap-8 mb-8">
+                    <!-- PROS -->
+                    <div class="bg-green-50 rounded-xl p-6 border-2 border-green-200">
+                        <h4 class="text-xl font-bold text-green-800 mb-4 flex items-center">
+                            <i class="fas fa-thumbs-up mr-2"></i>
+                            Strong Economic Case
+                        </h4>
+                        <ul class="space-y-2 text-sm text-stone-700">
+                            <li class="flex items-start">
+                                <i class="fas fa-check-circle text-green-600 mr-2 mt-1"></i>
+                                <span><strong>₹10,000-15,000 crore investment</strong> is largest FDI in state's recent history</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check-circle text-green-600 mr-2 mt-1"></i>
+                                <span><strong>₹200-500 crore annual tax revenue</strong> for 20+ years (₹4,000-10,000 crore lifetime)</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check-circle text-green-600 mr-2 mt-1"></i>
+                                <span>Positions Vizag as <strong>India's next tech hub</strong> (competing with Hyderabad, Bangalore)</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check-circle text-green-600 mr-2 mt-1"></i>
+                                <span><strong>4,000-6,500 total jobs</strong> (direct + indirect) with above-average salaries</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check-circle text-green-600 mr-2 mt-1"></i>
+                                <span>Infrastructure upgrades (power, roads, internet) benefit entire region</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check-circle text-green-600 mr-2 mt-1"></i>
+                                <span>Google's <strong>renewable energy commitment</strong> could add 500-1000 MW solar capacity to state grid</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- CONS -->
+                    <div class="bg-red-50 rounded-xl p-6 border-2 border-red-200">
+                        <h4 class="text-xl font-bold text-red-800 mb-4 flex items-center">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            Significant Risks & Costs
+                        </h4>
+                        <ul class="space-y-2 text-sm text-stone-700">
+                            <li class="flex items-start">
+                                <i class="fas fa-times-circle text-red-600 mr-2 mt-1"></i>
+                                <span><strong>Water crisis risk:</strong> 15-30 crore L/year in water-stressed region</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-times-circle text-red-600 mr-2 mt-1"></i>
+                                <span><strong>Power burden:</strong> 12-25% of city's capacity - may cause blackouts for residents</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-times-circle text-red-600 mr-2 mt-1"></i>
+                                <span><strong>1.3-2.6 million tonnes CO₂/year</strong> (if grid-powered) - contradicts climate goals</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-times-circle text-red-600 mr-2 mt-1"></i>
+                                <span><strong>200-500 families displaced</strong> - social unrest if compensation inadequate</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-times-circle text-red-600 mr-2 mt-1"></i>
+                                <span><strong>Low local hiring (20-30%)</strong> - benefits may flow to outsiders</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-times-circle text-red-600 mr-2 mt-1"></i>
+                                <span>Government subsidies (land, power, tax breaks) reduce net public benefit</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- FINAL VERDICT -->
+                <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-8 border-2 border-indigo-200">
+                    <h4 class="text-2xl font-bold text-indigo-900 mb-4 text-center">
+                        <i class="fas fa-gavel mr-2"></i>Final Assessment
+                    </h4>
+                    <div class="space-y-4 text-stone-800">
+                        <p class="leading-relaxed">
+                            <strong class="text-indigo-800">Conditionally YES</strong> - but only with <strong class="text-red-700">strict safeguards</strong>:
+                        </p>
+                        
+                        <div class="bg-white rounded-lg p-6 border border-indigo-200">
+                            <h5 class="font-bold text-indigo-800 mb-3 flex items-center">
+                                <i class="fas fa-shield-alt mr-2"></i>
+                                Critical Conditions for Success:
+                            </h5>
+                            <ol class="space-y-3 text-sm ml-6 list-decimal">
+                                <li>
+                                    <strong class="text-stone-900">Renewable Energy Mandate:</strong> Google must build dedicated 500-1000 MW solar/wind farms to power the facility 100% clean by 2028. No reliance on coal-heavy state grid.
+                                </li>
+                                <li>
+                                    <strong class="text-stone-900">Water Sustainability:</strong> Mandatory seawater desalination plant or closed-loop cooling systems. Zero freshwater extraction during March-June (summer shortage months).
+                                </li>
+                                <li>
+                                    <strong class="text-stone-900">Fair Compensation:</strong> Displaced families receive 3x market rate + guaranteed employment/skill training + rebuilt homes in quality townships with schools, hospitals.
+                                </li>
+                                <li>
+                                    <strong class="text-stone-900">Local Hiring Quota:</strong> Minimum 40% jobs reserved for Andhra Pradesh residents with on-site training academies for skill development.
+                                </li>
+                                <li>
+                                    <strong class="text-stone-900">Infrastructure Sharing:</strong> Upgraded roads, power substations, water treatment plants must serve public, not just the data center.
+                                </li>
+                                <li>
+                                    <strong class="text-stone-900">Environmental Monitoring:</strong> Independent third-party audits of water usage, emissions, noise levels with public transparency. Penalties for violations.
+                                </li>
+                                <li>
+                                    <strong class="text-stone-900">Revenue Sharing:</strong> 10-15% of annual profits allocated to Vizag municipal corporation for community development projects.
+                                </li>
+                            </ol>
+                        </div>
+
+                        <div class="bg-yellow-50 rounded-lg p-4 border-l-4 border-yellow-500 mt-4">
+                            <p class="text-sm text-stone-700 leading-relaxed">
+                                <i class="fas fa-lightbulb text-yellow-600 mr-2"></i>
+                                <strong>Without these protections,</strong> the Vizag Data Hub risks becoming another example of <strong>"extractive tech colonialism"</strong> - where global corporations profit while local communities bear environmental and social costs. Done right, it could be a <strong>model for sustainable digital infrastructure</strong> in India.
+                            </p>
+                        </div>
+
+                        <div class="text-center mt-6 p-4 bg-indigo-100 rounded-lg">
+                            <p class="text-sm font-semibold text-indigo-900">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                The <strong>₹10,000 crore question</strong>: Will Andhra Pradesh government prioritize long-term community welfare over short-term FDI bragging rights?
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Sources Note -->
+            <div class="mt-8 p-6 bg-slate-50 rounded-lg border border-slate-200">
+                <h4 class="text-sm font-bold text-slate-700 mb-2 flex items-center">
+                    <i class="fas fa-database text-slate-500 mr-2"></i>
+                    Data Sources & Methodology
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Estimates based on typical Google hyperscale data center specifications (Council Bluffs, Iowa; The Dalles, Oregon; Hamina, Finland), Andhra Pradesh industrial tariffs (2024-25), IEA data center energy benchmarks, and comparable Indian mega-projects (Adani Data Center Hyderabad, Yotta NM1 Navi Mumbai). Actual specifications may vary pending official Google announcements and environmental impact assessments.
+                </p>
+            </div>
+        </section>
+        
+        <!-- REFERENCES Section -->
+        <section id="sources" class="max-w-4xl mx-auto mt-16 pt-10 border-t border-slate-200">
+            <h3 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
+                <i class="fas fa-book-open mr-3 text-slate-400"></i> Sources & Methodology
+            </h3>
+            <div class="grid md:grid-cols-2 gap-x-12 gap-y-8 text-sm text-slate-600">
+                
+                <!-- Energy & Carbon -->
+                <div>
+                    <h4 class="font-bold text-slate-800 mb-3 border-b pb-1">Energy & Carbon</h4>
+                    <ul class="space-y-3 list-disc pl-4 marker:text-blue-400">
+                        <li>
+                            <a href="https://www.iea.org/reports/energy-and-ai" target="_blank" class="hover:text-blue-600 hover:underline">
+                                <strong>IEA (2024/2025):</strong> "Energy and AI" Report.
+                            </a>
+                            <p class="text-xs text-slate-400 mt-1">Source for global data center energy projections (1000 TWh by 2026).</p>
+                        </li>
+                        <li>
+                            <a href="https://arxiv.org/abs/2303.06219" target="_blank" class="hover:text-blue-600 hover:underline">
+                                <strong>Tomlinson et al. (2024):</strong> "The Carbon Emissions of Writing and Illustrating Are Lower for AI than for Humans."
+                            </a>
+                            <p class="text-xs text-slate-400 mt-1">Comparisons of AI text/image generation vs human baselines.</p>
+                        </li>
+                        <li>
+                            <span class="font-semibold text-slate-700">Estimates:</span> Phone charge (0.015 kWh) and Car emission (0.17 kg/km) based on EPA/standard conversion factors.
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Water Usage -->
+                <div>
+                    <h4 class="font-bold text-slate-800 mb-3 border-b pb-1">Water Consumption</h4>
+                    <ul class="space-y-3 list-disc pl-4 marker:text-cyan-400">
+                        <li>
+                            <a href="https://arxiv.org/abs/2304.03271" target="_blank" class="hover:text-blue-600 hover:underline">
+                                <strong>Li et al. (UC Riverside, 2023):</strong> "Making AI Less Thirsty."
+                            </a>
+                            <p class="text-xs text-slate-400 mt-1">Source for the "500ml water per 20-50 queries" estimate and training consumption data.</p>
+                        </li>
+                        <li>
+                            <a href="https://www.washingtonpost.com" target="_blank" class="hover:text-blue-600 hover:underline">
+                                <strong>Washington Post / Times of India:</strong>
+                            </a>
+                            <p class="text-xs text-slate-400 mt-1">Reporting on local water usage in data center hubs like Iowa and Arizona.</p>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Market & Distribution (New) -->
+                <div>
+                    <h4 class="font-bold text-slate-800 mb-3 border-b pb-1">Market & Locations</h4>
+                    <ul class="space-y-3 list-disc pl-4 marker:text-purple-400">
+                        <li>
+                            <a href="https://www.srgresearch.com/" target="_blank" class="hover:text-blue-600 hover:underline">
+                                <strong>Synergy Research Group (2025):</strong> Hyperscale Data Center Count.
+                            </a>
+                            <p class="text-xs text-slate-400 mt-1">Data on the ~1,136 operational hyperscale facilities.</p>
+                        </li>
+                        <li>
+                            <a href="https://www.abiresearch.com/" target="_blank" class="hover:text-blue-600 hover:underline">
+                                <strong>ABI Research (2025):</strong> Global Cloud Data Center Forecast.
+                            </a>
+                            <p class="text-xs text-slate-400 mt-1">Projections for 6,000+ total data centers and regional growth in APAC.</p>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Land & Infrastructure -->
+                <div>
+                    <h4 class="font-bold text-slate-800 mb-3 border-b pb-1">Land Use & Infrastructure</h4>
+                    <ul class="space-y-3 list-disc pl-4 marker:text-emerald-400">
+                        <li>
+                            <a href="https://www.jll.com/en-us/trends-and-insights/research/data-center-outlook" target="_blank" class="hover:text-blue-600 hover:underline">
+                                <strong>JLL Research:</strong> "Data Center Outlook."
+                            </a>
+                            <p class="text-xs text-slate-400 mt-1">Data on hyperscale campus sizes (200-500+ acres) and power requirements.</p>
+                        </li>
+                        <li>
+                            <span class="font-semibold text-slate-700">Data Centre Dynamics:</span> Reporting on "Gigawatt-scale" campuses exceeding 1,000 acres.
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Human Impact -->
+                <div>
+                    <h4 class="font-bold text-slate-800 mb-3 border-b pb-1">Human Impact</h4>
+                    <ul class="space-y-3 list-disc pl-4 marker:text-orange-400">
+                        <li>
+                            <a href="https://ghostwork.info/" target="_blank" class="hover:text-blue-600 hover:underline">
+                                <strong>Gray & Suri (2019):</strong> "Ghost Work."
+                            </a>
+                            <p class="text-xs text-slate-400 mt-1">Foundational research on the invisible on-demand labor force.</p>
+                        </li>
+                        <li>
+                            <a href="https://time.com/6247678/openai-chatgpt-kenya-workers/" target="_blank" class="hover:text-blue-600 hover:underline">
+                                <strong>TIME Magazine (2023):</strong> "Exclusive: OpenAI Used Kenyan Workers on Less Than $2 Per Hour."
+                            </a>
+                            <p class="text-xs text-slate-400 mt-1">Investigative reporting on data labeling conditions.</p>
+                        </li>
+                    </ul>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-stone-900 border-t border-stone-800 py-12 text-center text-stone-400 text-sm">
+        <div class="max-w-4xl mx-auto px-4 space-y-4">
+            <div class="flex justify-center items-center gap-6 mb-6 text-stone-300">
+                <a href="#calculator" class="hover:text-emerald-400 transition-colors">Calculator</a>
+                <a href="#taskEstimator" class="hover:text-emerald-400 transition-colors">Task Estimator</a>
+                <a href="#sources" class="hover:text-emerald-400 transition-colors">Sources</a>
+            </div>
+            <p class="text-stone-500">Educational visualization. Actual impact varies by model, location, and energy grid.</p>
+            <div class="mt-8 pt-6 border-t border-stone-800">
+                <p class="text-stone-500 flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                    <span>Environmental awareness through data</span>
+                </p>
+                <p class="text-stone-600 mt-2">© 2025 AI Environmental Impact</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // --- Calculator Logic ---
+        
+        // Constants (Conservative Averages)
+        const TEXT_ENERGY_KWH = 0.003; // per query
+        const IMAGE_ENERGY_KWH = 0.15; // per image (much higher)
+        
+        const TEXT_WATER_L = 0.015; // 15ml per query
+        const IMAGE_WATER_L = 0.5; // 500ml per image
+        
+        const GLOBAL_CARBON_INTENSITY = 0.475; // kg CO2e per kWh (Global Avg)
+        
+        // Phone charge (approx 0.015 kWh)
+        const PHONE_CHARGE_KWH = 0.015;
+        // Car km (approx 0.17 kg CO2 per km)
+        const CAR_KM_CO2 = 0.17;
+
+        const textInput = document.getElementById('textPrompts');
+        const imageInput = document.getElementById('imagePrompts');
+        const textValDisplay = document.getElementById('textPromptsValue');
+        const imageValDisplay = document.getElementById('imagePromptsValue');
+
+        function updateCalculator() {
+            const dailyText = parseInt(textInput.value);
+            const dailyImage = parseInt(imageInput.value);
+
+            // Update UI numbers
+            textValDisplay.innerText = dailyText + (dailyText === 100 ? '+' : '');
+            imageValDisplay.innerText = dailyImage + (dailyImage === 20 ? '+' : '');
+
+            // Yearly calculations
+            const yearlyTextEnergy = dailyText * TEXT_ENERGY_KWH * 365;
+            const yearlyImageEnergy = dailyImage * IMAGE_ENERGY_KWH * 365;
+            const totalEnergy = yearlyTextEnergy + yearlyImageEnergy;
+
+            const yearlyTextWater = dailyText * TEXT_WATER_L * 365;
+            const yearlyImageWater = dailyImage * IMAGE_WATER_L * 365;
+            const totalWater = yearlyTextWater + yearlyImageWater;
+
+            const totalCarbon = totalEnergy * GLOBAL_CARBON_INTENSITY;
+
+            // Comparisons
+            const phoneCharges = totalEnergy / PHONE_CHARGE_KWH;
+            const waterBottles = totalWater / 0.5; // 500ml bottles
+            const carKm = totalCarbon / CAR_KM_CO2;
+
+            // Update DOM
+            animateValue("energyResult", parseFloat(document.getElementById("energyResult").innerText), totalEnergy.toFixed(1), 500);
+            animateValue("waterResult", parseFloat(document.getElementById("waterResult").innerText), totalWater.toFixed(1), 500);
+            animateValue("carbonResult", parseFloat(document.getElementById("carbonResult").innerText), totalCarbon.toFixed(1), 500);
+            
+            document.getElementById("phoneCharges").innerText = Math.round(phoneCharges).toLocaleString();
+            document.getElementById("waterBottles").innerText = Math.round(waterBottles).toLocaleString();
+            document.getElementById("carMiles").innerText = Math.round(carKm).toLocaleString();
+        }
+
+        // Simple number animation
+        function animateValue(id, start, end, duration) {
+            const obj = document.getElementById(id);
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                obj.innerHTML = (progress * (end - start) + start).toFixed(1);
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        // --- NEW: Task Estimator Logic ---
+        function calculateTaskCost() {
+            const taskName = document.getElementById('taskNameInput').value;
+            const taskType = document.getElementById('taskTypeSelect').value;
+            const resultContainer = document.getElementById('taskResultContainer');
+            
+            if (!taskName) {
+                alert("Please enter a task name first!");
+                return;
+            }
+
+            // Estimations for a SINGLE task (not daily/yearly)
+            let energy = 0;
+            let water = 0;
+            let comparison = "";
+
+            if (taskType === 'text') {
+                energy = 0.004; // ~4 Wh per standard essay/long chat
+                water = 20; // ml
+                comparison = "Similar to powering a ceiling fan for 15 minutes.";
+            } else if (taskType === 'image') {
+                energy = 0.2; // ~200 Wh per high-res image generation
+                water = 500; // ml (one bottle)
+                comparison = "Uses as much energy as a mixer grinder running for 20 minutes.";
+            } else if (taskType === 'video') {
+                energy = 1.5; // ~1500 Wh (Estimate for short AI video)
+                water = 2000; // ml
+                comparison = "Equivalent to running an iron for 1 hour.";
+            }
+
+            // Update UI
+            document.getElementById('displayTaskName').innerText = taskName;
+            document.getElementById('taskEnergy').innerText = energy.toFixed(3) + " kWh";
+            document.getElementById('taskWater').innerText = water + " ml";
+            document.getElementById('taskComparison').innerText = comparison;
+
+            // Show result
+            resultContainer.classList.remove('hidden');
+        }
+
+        // Event Listeners
+        textInput.addEventListener('input', updateCalculator);
+        imageInput.addEventListener('input', updateCalculator);
+        
+        // Init
+        updateCalculator();
+
+        // --- Charts Logic ---
+
+        // 1. Training Comparison Chart
+        const ctxTraining = document.getElementById('trainingChart').getContext('2d');
+        new Chart(ctxTraining, {
+            type: 'bar',
+            data: {
+                labels: ['Avg Indian Home (Year)', 'GPT-3 Training', 'GPT-4 Training (Est)'],
+                datasets: [{
+                    label: 'Energy Consumption (MWh)',
+                    data: [3.5, 1287, 55000], // 3.5 MWh avg Indian home, 1287 GPT3, ~55k GPT4
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.7)', // blue
+                        'rgba(16, 185, 129, 0.7)', // emerald green
+                        'rgba(245, 158, 11, 0.7)'   // amber/orange
+                    ],
+                    borderColor: [
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(16, 185, 129, 1)',
+                        'rgba(245, 158, 11, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                indexAxis: 'y', // Horizontal bar
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        type: 'logarithmic', // Using log scale because GPT4 is so massive
+                        title: { display: true, text: 'Megawatt Hours (Log Scale)' }
+                    }
+                }
+            }
+        });
+
+        // 2. Global Comparison Chart
+        const ctxGlobal = document.getElementById('globalChart').getContext('2d');
+        new Chart(ctxGlobal, {
+            type: 'bar',
+            data: {
+                labels: ['India', 'Germany', 'Data Centers (2026)', 'Japan', 'USA'],
+                datasets: [{
+                    label: 'Annual Electricity Consumption (TWh)',
+                    data: [1700, 500, 1000, 950, 4200], // Approx figures. DC projected ~1000.
+                    backgroundColor: [
+                        'rgba(245, 158, 11, 0.7)', // orange for India
+                        'rgba(220, 38, 38, 0.7)', // red for Germany
+                        'rgba(16, 185, 129, 0.9)', // emerald green for DC focus - HIGHLIGHTED
+                        'rgba(139, 92, 246, 0.7)', // purple for Japan
+                        'rgba(59, 130, 246, 0.7)' // blue for USA
+                    ],
+                    borderColor: [
+                        'rgba(245, 158, 11, 1)',
+                        'rgba(220, 38, 38, 1)',
+                        'rgba(16, 185, 129, 1)',
+                        'rgba(139, 92, 246, 1)',
+                        'rgba(59, 130, 246, 1)'
+                    ],
+                    borderWidth: [2, 2, 3, 2, 2]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.raw + ' TWh';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Terawatt Hours (TWh)' }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
